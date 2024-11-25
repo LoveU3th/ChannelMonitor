@@ -2,16 +2,6 @@ name: Manual Workflow
 
 on: 
   workflow_dispatch:
-    inputs:
-      version:
-        description: ''
-        required: false
-        type: string
-      branch:
-        description: '要构建的分支'
-        required: true
-        default: 'feature/#3'
-        type: string
   push:
     branches:
       - main
