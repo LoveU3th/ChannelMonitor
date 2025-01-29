@@ -40,6 +40,9 @@ jobs:
         context: .
         platforms: linux/amd64,linux/arm64
         push: true
+        build-args: |
+          TARGETOS=linux
+          TARGETARCH=${{ matrix.arch }}
         tags: |
           ${{ secrets.DOCKER_USERNAME }}/channel-monitor:latest
           ${{ secrets.DOCKER_USERNAME }}/channel-monitor:${{ env.VERSION }}

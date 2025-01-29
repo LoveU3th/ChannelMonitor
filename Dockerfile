@@ -6,12 +6,20 @@ COPY go.mod go.sum ./
 
 RUN apk add --no-cache gcc musl-dev make git
 
+# 安装跨平台编译工具链
+RUN apk add --no-cache --virtual .build-deps \
+    gcc-aarch64-linux-gnu \
+    gcc-x86_64-linux-gnu
+
 # 安装依赖并验证
 RUN go mod download && go mod verify
 
 COPY . .
 
-RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o main .
+# 使用动态架构参数
+ARG TARGETOS TARGETARCH
+RUN CGO_ENABLED=1 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+    go build -o main .
 
 FROM alpine:latest
 
