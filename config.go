@@ -42,6 +42,9 @@ type Config struct {
 			Secret string `json:"secret"`
 		} `json:"webhook"`
 	} `json:"notification"`
+	RateLimit struct {
+		RequestsPerMinute int `json:"requests_per_minute"`
+	} `json:"rate_limit"`
 }
 
 func loadConfig() (*Config, error) {

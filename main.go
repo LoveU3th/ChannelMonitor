@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"golang.org/x/time/rate"
 )
 
 type Channel struct {
@@ -23,9 +25,15 @@ type Channel struct {
 	ModelMapping map[string]string
 }
 
+type ChannelLimiter struct {
+	channel  Channel
+	limiter  *rate.Limiter
+}
+
 var (
 	db     *gorm.DB
 	config *Config
+	channelLimiters sync.Map
 )
 
 func fetchChannels() ([]Channel, error) {
@@ -90,6 +98,19 @@ func containsString(slice []string, item string) bool {
 	return false
 }
 
+func getChannelLimiter(channel Channel) *rate.Limiter {
+	if limiter, exists := channelLimiters.Load(channel.ID); exists {
+		return limiter.(*rate.Limiter)
+	}
+	
+	// 计算速率：将每分钟请求数转换为每秒速率
+	ratePerSecond := float64(config.RateLimit.RequestsPerMinute) / 60.0
+	limiter := rate.NewLimiter(rate.Limit(ratePerSecond), 1) // burst size 设为1
+	
+	channelLimiters.Store(channel.ID, limiter)
+	return limiter
+}
+
 func testModels(channel Channel, wg *sync.WaitGroup, mu *sync.Mutex) {
 	defer wg.Done()
 
@@ -141,6 +162,9 @@ func testModels(channel Channel, wg *sync.WaitGroup, mu *sync.Mutex) {
 			}
 		}
 	}
+	// 获取该渠道的限流器
+	limiter := getChannelLimiter(channel)
+
 	// 测试模型并发处理
 	modelWg := sync.WaitGroup{}
 	modelMu := sync.Mutex{}
@@ -148,6 +172,14 @@ func testModels(channel Channel, wg *sync.WaitGroup, mu *sync.Mutex) {
 		modelWg.Add(1)
 		go func(model string) {
 			defer modelWg.Done()
+			
+			// 等待令牌可用
+			err := limiter.Wait(context.Background())
+			if err != nil {
+				log.Printf("速率限制等待错误：%v\n", err)
+				return
+			}
+			
 			url := channel.BaseURL
 			if !strings.Contains(channel.BaseURL, "/v1/chat/completions") {
 				if !strings.HasSuffix(channel.BaseURL, "/chat") {
@@ -452,6 +484,11 @@ func main() {
 	config, err = loadConfig()
 	if err != nil {
 		log.Fatal("加载配置失败：", err)
+	}
+
+	// 设置默认的速率限制
+	if config.RateLimit.RequestsPerMinute == 0 {
+		config.RateLimit.RequestsPerMinute = 10 // 默认每分钟10个请求
 	}
 
 	// 解析时间周期

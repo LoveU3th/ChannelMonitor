@@ -38,5 +38,6 @@
             },
             "secret": "YOUR_WEBHOOK_SECRET"
         }
-    }
+    },
+    "requests_per_second": 10
 }
