@@ -6,6 +6,9 @@ COPY go.mod go.sum ./
 
 RUN apk add --no-cache gcc musl-dev make git
 
+# 添加缺失的依赖并更新 go.mod
+RUN go get golang.org/x/time/rate && go mod tidy
+
 RUN go mod download
 
 COPY . .
