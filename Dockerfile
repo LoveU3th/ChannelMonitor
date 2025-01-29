@@ -6,8 +6,8 @@ COPY go.mod go.sum ./
 
 RUN apk add --no-cache gcc musl-dev make git
 
-# 更新 go.mod 和 go.sum
-RUN go mod download golang.org/x/time && \
+# 添加并更新依赖
+RUN go get golang.org/x/time && \
     go mod tidy
 
 COPY . .
